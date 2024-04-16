@@ -19,7 +19,9 @@ export class MonacoTextModelService extends TheiaMonacoTextModelService {
     const factory = this.factories
       .getContributions()
       .find(({ scheme }) => resource.uri.scheme === scheme);
-    const readOnly = this.sketchesServiceClient.isReadOnly(resource.uri);
+    const readOnly =
+      Boolean(resource.isReadonly) ||
+      this.sketchesServiceClient.isReadOnly(resource.uri);
     return factory
       ? factory.createModel(resource)
       : new MaybeReadonlyMonacoEditorModel(
@@ -75,7 +77,7 @@ class MaybeReadonlyMonacoEditorModel extends SilentMonacoEditorModel {
     }
     this._dirty = dirty;
     if (dirty === false) {
-      (this as any).updateSavedVersionId();
+      this['updateSavedVersionId']();
     }
     this.onDirtyChangedEmitter.fire(undefined);
   }

@@ -10,9 +10,11 @@ import * as cc_arduino_cli_commands_v1_common_pb from "../../../../../cc/arduino
 import * as cc_arduino_cli_commands_v1_board_pb from "../../../../../cc/arduino/cli/commands/v1/board_pb";
 import * as cc_arduino_cli_commands_v1_compile_pb from "../../../../../cc/arduino/cli/commands/v1/compile_pb";
 import * as cc_arduino_cli_commands_v1_core_pb from "../../../../../cc/arduino/cli/commands/v1/core_pb";
+import * as cc_arduino_cli_commands_v1_debug_pb from "../../../../../cc/arduino/cli/commands/v1/debug_pb";
 import * as cc_arduino_cli_commands_v1_monitor_pb from "../../../../../cc/arduino/cli/commands/v1/monitor_pb";
 import * as cc_arduino_cli_commands_v1_upload_pb from "../../../../../cc/arduino/cli/commands/v1/upload_pb";
 import * as cc_arduino_cli_commands_v1_lib_pb from "../../../../../cc/arduino/cli/commands/v1/lib_pb";
+import * as cc_arduino_cli_commands_v1_settings_pb from "../../../../../cc/arduino/cli/commands/v1/settings_pb";
 
 export class CreateRequest extends jspb.Message { 
 
@@ -421,28 +423,11 @@ export namespace LoadSketchRequest {
 }
 
 export class LoadSketchResponse extends jspb.Message { 
-    getMainFile(): string;
-    setMainFile(value: string): LoadSketchResponse;
-    getLocationPath(): string;
-    setLocationPath(value: string): LoadSketchResponse;
-    clearOtherSketchFilesList(): void;
-    getOtherSketchFilesList(): Array<string>;
-    setOtherSketchFilesList(value: Array<string>): LoadSketchResponse;
-    addOtherSketchFiles(value: string, index?: number): string;
-    clearAdditionalFilesList(): void;
-    getAdditionalFilesList(): Array<string>;
-    setAdditionalFilesList(value: Array<string>): LoadSketchResponse;
-    addAdditionalFiles(value: string, index?: number): string;
-    clearRootFolderFilesList(): void;
-    getRootFolderFilesList(): Array<string>;
-    setRootFolderFilesList(value: Array<string>): LoadSketchResponse;
-    addRootFolderFiles(value: string, index?: number): string;
-    getDefaultFqbn(): string;
-    setDefaultFqbn(value: string): LoadSketchResponse;
-    getDefaultPort(): string;
-    setDefaultPort(value: string): LoadSketchResponse;
-    getDefaultProtocol(): string;
-    setDefaultProtocol(value: string): LoadSketchResponse;
+
+    hasSketch(): boolean;
+    clearSketch(): void;
+    getSketch(): cc_arduino_cli_commands_v1_common_pb.Sketch | undefined;
+    setSketch(value?: cc_arduino_cli_commands_v1_common_pb.Sketch): LoadSketchResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): LoadSketchResponse.AsObject;
@@ -456,14 +441,7 @@ export class LoadSketchResponse extends jspb.Message {
 
 export namespace LoadSketchResponse {
     export type AsObject = {
-        mainFile: string,
-        locationPath: string,
-        otherSketchFilesList: Array<string>,
-        additionalFilesList: Array<string>,
-        rootFolderFilesList: Array<string>,
-        defaultFqbn: string,
-        defaultPort: string,
-        defaultProtocol: string,
+        sketch?: cc_arduino_cli_commands_v1_common_pb.Sketch.AsObject,
     }
 }
 

@@ -1,7 +1,8 @@
 import { Emitter } from '@theia/core/lib/common/event';
 import { nls } from '@theia/core/lib/common/nls';
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { CoreService, sanitizeFqbn } from '../../common/protocol';
+import { FQBN } from 'fqbn';
+import { CoreService } from '../../common/protocol';
 import { ArduinoMenus } from '../menu/arduino-menus';
 import { CurrentSketch } from '../sketches-service-client-impl';
 import { ArduinoToolbar } from '../toolbar/arduino-toolbar';
@@ -136,9 +137,10 @@ export class UploadSketch extends CoreServiceContribution {
 
       const uploadResponse = await this.doWithProgress({
         progressText: nls.localize('arduino/sketch/uploading', 'Uploading...'),
-        task: (progressId, coreService) =>
-          coreService.upload({ ...uploadOptions, progressId }),
+        task: (progressId, coreService, token) =>
+          coreService.upload({ ...uploadOptions, progressId }, token),
         keepOutput: true,
+        cancelable: true,
       });
       // the port update is NOOP if nothing has changed
       this.boardsServiceProvider.updateConfig(uploadResponse.portAfterUpload);
@@ -172,7 +174,11 @@ export class UploadSketch extends CoreServiceContribution {
     const [fqbn, { selectedProgrammer: programmer }, verify, verbose] =
       await Promise.all([
         verifyOptions.fqbn, // already decorated FQBN
-        this.boardsDataStore.getData(sanitizeFqbn(verifyOptions.fqbn)),
+        this.boardsDataStore.getData(
+          verifyOptions.fqbn
+            ? new FQBN(verifyOptions.fqbn).toString(true)
+            : undefined
+        ),
         this.preferences.get('arduino.upload.verify'),
         this.preferences.get('arduino.upload.verbose'),
       ]);

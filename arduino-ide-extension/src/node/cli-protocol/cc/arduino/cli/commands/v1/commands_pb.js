@@ -31,12 +31,16 @@ var cc_arduino_cli_commands_v1_compile_pb = require('../../../../../cc/arduino/c
 goog.object.extend(proto, cc_arduino_cli_commands_v1_compile_pb);
 var cc_arduino_cli_commands_v1_core_pb = require('../../../../../cc/arduino/cli/commands/v1/core_pb.js');
 goog.object.extend(proto, cc_arduino_cli_commands_v1_core_pb);
+var cc_arduino_cli_commands_v1_debug_pb = require('../../../../../cc/arduino/cli/commands/v1/debug_pb.js');
+goog.object.extend(proto, cc_arduino_cli_commands_v1_debug_pb);
 var cc_arduino_cli_commands_v1_monitor_pb = require('../../../../../cc/arduino/cli/commands/v1/monitor_pb.js');
 goog.object.extend(proto, cc_arduino_cli_commands_v1_monitor_pb);
 var cc_arduino_cli_commands_v1_upload_pb = require('../../../../../cc/arduino/cli/commands/v1/upload_pb.js');
 goog.object.extend(proto, cc_arduino_cli_commands_v1_upload_pb);
 var cc_arduino_cli_commands_v1_lib_pb = require('../../../../../cc/arduino/cli/commands/v1/lib_pb.js');
 goog.object.extend(proto, cc_arduino_cli_commands_v1_lib_pb);
+var cc_arduino_cli_commands_v1_settings_pb = require('../../../../../cc/arduino/cli/commands/v1/settings_pb.js');
+goog.object.extend(proto, cc_arduino_cli_commands_v1_settings_pb);
 goog.exportSymbol('proto.cc.arduino.cli.commands.v1.ArchiveSketchRequest', null, global);
 goog.exportSymbol('proto.cc.arduino.cli.commands.v1.ArchiveSketchResponse', null, global);
 goog.exportSymbol('proto.cc.arduino.cli.commands.v1.CreateRequest', null, global);
@@ -429,7 +433,7 @@ if (goog.DEBUG && !COMPILED) {
  * @constructor
  */
 proto.cc.arduino.cli.commands.v1.LoadSketchResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.cc.arduino.cli.commands.v1.LoadSketchResponse.repeatedFields_, null);
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
 goog.inherits(proto.cc.arduino.cli.commands.v1.LoadSketchResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
@@ -3196,13 +3200,6 @@ proto.cc.arduino.cli.commands.v1.LoadSketchRequest.prototype.setSketchPath = fun
 
 
 
-/**
- * List of repeated fields within this message type.
- * @private {!Array<number>}
- * @const
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.repeatedFields_ = [3,4,5];
-
 
 
 if (jspb.Message.GENERATE_TO_OBJECT) {
@@ -3234,14 +3231,7 @@ proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.toObject = functio
  */
 proto.cc.arduino.cli.commands.v1.LoadSketchResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    mainFile: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    locationPath: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    otherSketchFilesList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f,
-    additionalFilesList: (f = jspb.Message.getRepeatedField(msg, 4)) == null ? undefined : f,
-    rootFolderFilesList: (f = jspb.Message.getRepeatedField(msg, 5)) == null ? undefined : f,
-    defaultFqbn: jspb.Message.getFieldWithDefault(msg, 6, ""),
-    defaultPort: jspb.Message.getFieldWithDefault(msg, 7, ""),
-    defaultProtocol: jspb.Message.getFieldWithDefault(msg, 8, "")
+    sketch: (f = msg.getSketch()) && cc_arduino_cli_commands_v1_common_pb.Sketch.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -3279,36 +3269,9 @@ proto.cc.arduino.cli.commands.v1.LoadSketchResponse.deserializeBinaryFromReader 
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setMainFile(value);
-      break;
-    case 2:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setLocationPath(value);
-      break;
-    case 3:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addOtherSketchFiles(value);
-      break;
-    case 4:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addAdditionalFiles(value);
-      break;
-    case 5:
-      var value = /** @type {string} */ (reader.readString());
-      msg.addRootFolderFiles(value);
-      break;
-    case 6:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setDefaultFqbn(value);
-      break;
-    case 7:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setDefaultPort(value);
-      break;
-    case 8:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setDefaultProtocol(value);
+      var value = new cc_arduino_cli_commands_v1_common_pb.Sketch;
+      reader.readMessage(value,cc_arduino_cli_commands_v1_common_pb.Sketch.deserializeBinaryFromReader);
+      msg.setSketch(value);
       break;
     default:
       reader.skipField();
@@ -3339,263 +3302,51 @@ proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.serializeBinary = 
  */
 proto.cc.arduino.cli.commands.v1.LoadSketchResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getMainFile();
-  if (f.length > 0) {
-    writer.writeString(
+  f = message.getSketch();
+  if (f != null) {
+    writer.writeMessage(
       1,
-      f
-    );
-  }
-  f = message.getLocationPath();
-  if (f.length > 0) {
-    writer.writeString(
-      2,
-      f
-    );
-  }
-  f = message.getOtherSketchFilesList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      3,
-      f
-    );
-  }
-  f = message.getAdditionalFilesList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      4,
-      f
-    );
-  }
-  f = message.getRootFolderFilesList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      5,
-      f
-    );
-  }
-  f = message.getDefaultFqbn();
-  if (f.length > 0) {
-    writer.writeString(
-      6,
-      f
-    );
-  }
-  f = message.getDefaultPort();
-  if (f.length > 0) {
-    writer.writeString(
-      7,
-      f
-    );
-  }
-  f = message.getDefaultProtocol();
-  if (f.length > 0) {
-    writer.writeString(
-      8,
-      f
+      f,
+      cc_arduino_cli_commands_v1_common_pb.Sketch.serializeBinaryToWriter
     );
   }
 };
 
 
 /**
- * optional string main_file = 1;
- * @return {string}
+ * optional Sketch sketch = 1;
+ * @return {?proto.cc.arduino.cli.commands.v1.Sketch}
  */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.getMainFile = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.getSketch = function() {
+  return /** @type{?proto.cc.arduino.cli.commands.v1.Sketch} */ (
+    jspb.Message.getWrapperField(this, cc_arduino_cli_commands_v1_common_pb.Sketch, 1));
 };
 
 
 /**
- * @param {string} value
+ * @param {?proto.cc.arduino.cli.commands.v1.Sketch|undefined} value
+ * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
+*/
+proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.setSketch = function(value) {
+  return jspb.Message.setWrapperField(this, 1, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
  * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
  */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.setMainFile = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
+proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.clearSketch = function() {
+  return this.setSketch(undefined);
 };
 
 
 /**
- * optional string location_path = 2;
- * @return {string}
+ * Returns whether this field is set.
+ * @return {boolean}
  */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.getLocationPath = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.setLocationPath = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * repeated string other_sketch_files = 3;
- * @return {!Array<string>}
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.getOtherSketchFilesList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 3));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.setOtherSketchFilesList = function(value) {
-  return jspb.Message.setField(this, 3, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.addOtherSketchFiles = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.clearOtherSketchFilesList = function() {
-  return this.setOtherSketchFilesList([]);
-};
-
-
-/**
- * repeated string additional_files = 4;
- * @return {!Array<string>}
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.getAdditionalFilesList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 4));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.setAdditionalFilesList = function(value) {
-  return jspb.Message.setField(this, 4, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.addAdditionalFiles = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 4, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.clearAdditionalFilesList = function() {
-  return this.setAdditionalFilesList([]);
-};
-
-
-/**
- * repeated string root_folder_files = 5;
- * @return {!Array<string>}
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.getRootFolderFilesList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 5));
-};
-
-
-/**
- * @param {!Array<string>} value
- * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.setRootFolderFilesList = function(value) {
-  return jspb.Message.setField(this, 5, value || []);
-};
-
-
-/**
- * @param {string} value
- * @param {number=} opt_index
- * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.addRootFolderFiles = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 5, value, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.clearRootFolderFilesList = function() {
-  return this.setRootFolderFilesList([]);
-};
-
-
-/**
- * optional string default_fqbn = 6;
- * @return {string}
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.getDefaultFqbn = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 6, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.setDefaultFqbn = function(value) {
-  return jspb.Message.setProto3StringField(this, 6, value);
-};
-
-
-/**
- * optional string default_port = 7;
- * @return {string}
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.getDefaultPort = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 7, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.setDefaultPort = function(value) {
-  return jspb.Message.setProto3StringField(this, 7, value);
-};
-
-
-/**
- * optional string default_protocol = 8;
- * @return {string}
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.getDefaultProtocol = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 8, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.cc.arduino.cli.commands.v1.LoadSketchResponse} returns this
- */
-proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.setDefaultProtocol = function(value) {
-  return jspb.Message.setProto3StringField(this, 8, value);
+proto.cc.arduino.cli.commands.v1.LoadSketchResponse.prototype.hasSketch = function() {
+  return jspb.Message.getField(this, 1) != null;
 };
 
 

@@ -8,6 +8,8 @@ export namespace SketchesError {
   export const Codes = {
     NotFound: 5001,
     InvalidName: 5002,
+    InvalidFolderName: 5003,
+    SketchAlreadyContainsThisFile: 5004,
   };
   export const NotFound = ApplicationError.declare(
     Codes.NotFound,
@@ -24,6 +26,30 @@ export namespace SketchesError {
       return {
         message,
         data: { invalidMainSketchUri },
+      };
+    }
+  );
+  export const InvalidFolderName = ApplicationError.declare(
+    Codes.InvalidFolderName,
+    (message: string, invalidFolderName: string) => {
+      return {
+        message,
+        data: { invalidFolderName },
+      };
+    }
+  );
+  // https://github.com/arduino/arduino-ide/issues/827
+  export const SketchAlreadyContainsThisFile = ApplicationError.declare(
+    Codes.SketchAlreadyContainsThisFile,
+    (
+      message: string,
+      sourceSketchName: string,
+      targetSketchName: string,
+      existingSketchFilename: string
+    ) => {
+      return {
+        message,
+        data: { sourceSketchName, targetSketchName, existingSketchFilename },
       };
     }
   );
@@ -121,7 +147,7 @@ export interface SketchesService {
    * Hence, IDE2 has to provide multiple build paths on Windows. This hack will be obsolete when the CLI can provide error codes:
    * https://github.com/arduino/arduino-cli/issues/1762.
    */
-  tempBuildPath(sketch: Sketch): Promise<string[]>;
+  tempBuildPath(sketch: SketchRef): Promise<string[]>;
 }
 
 export interface SketchRef {
@@ -308,7 +334,7 @@ export namespace Sketch {
   export namespace Extensions {
     export const DEFAULT = '.ino';
     export const MAIN = [DEFAULT, '.pde'];
-    export const SOURCE = ['.c', '.cpp', '.S'];
+    export const SOURCE = ['.c', '.cpp', '.S', '.cxx', '.cc'];
     export const CODE_FILES = [
       ...MAIN,
       ...SOURCE,

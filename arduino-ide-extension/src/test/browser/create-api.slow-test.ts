@@ -1,3 +1,4 @@
+import { UUID } from '@theia/core/shared/@phosphor/coreutils';
 import {
   Container,
   ContainerModule,
@@ -5,17 +6,23 @@ import {
 } from '@theia/core/shared/inversify';
 import { assert, expect } from 'chai';
 import fetch from 'cross-fetch';
+import { rejects } from 'node:assert';
 import { posix } from 'node:path';
-import { v4 } from 'uuid';
+import PQueue from 'p-queue';
+import queryString from 'query-string';
 import { ArduinoPreferences } from '../../browser/arduino-preferences';
 import { AuthenticationClientService } from '../../browser/auth/authentication-client-service';
 import { CreateApi } from '../../browser/create/create-api';
 import { splitSketchPath } from '../../browser/create/create-paths';
-import { Create, CreateError } from '../../browser/create/typings';
+import {
+  Create,
+  CreateError,
+  isNotFound,
+  isUnprocessableContent,
+} from '../../browser/create/typings';
 import { SketchCache } from '../../browser/widgets/cloud-sketchbook/cloud-sketch-cache';
 import { SketchesService } from '../../common/protocol';
 import { AuthenticationSession } from '../../node/auth/types';
-import queryString from 'query-string';
 
 /* eslint-disable @typescript-eslint/no-non-null-asserted-optional-chain */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
@@ -40,6 +47,11 @@ describe('create-api', () => {
   });
 
   beforeEach(async function () {
+    this.timeout(timeout);
+    await cleanAllSketches();
+  });
+
+  afterEach(async function () {
     this.timeout(timeout);
     await cleanAllSketches();
   });
@@ -120,19 +132,20 @@ describe('create-api', () => {
 
   async function cleanAllSketches(): Promise<void> {
     let sketches = await createApi.sketches();
-    // Cannot delete the sketches with `await Promise.all` as all delete promise successfully resolve, but the sketch is not deleted from the server.
-    await sketches
-      .map(({ path }) => createApi.deleteSketch(path))
-      .reduce(async (acc, curr) => {
-        await acc;
-        return curr;
-      }, Promise.resolve());
+    const deleteExecutionQueue = new PQueue({
+      concurrency: 5,
+      autoStart: true,
+    });
+    sketches.forEach(({ path }) =>
+      deleteExecutionQueue.add(() => createApi.deleteSketch(path))
+    );
+    await deleteExecutionQueue.onIdle();
     sketches = await createApi.sketches();
     expect(sketches).to.be.empty;
   }
 
   it('should delete sketch', async () => {
-    const name = v4();
+    const name = UUID.uuid4();
     const content = 'alma\nkorte';
     const posixPath = toPosix(name);
 
@@ -172,8 +185,8 @@ describe('create-api', () => {
   });
 
   it('should rename a sketch folder with all its content', async () => {
-    const name = v4();
-    const newName = v4();
+    const name = UUID.uuid4();
+    const newName = UUID.uuid4();
     const content = 'void setup(){} void loop(){}';
     const posixPath = toPosix(name);
     const newPosixPath = toPosix(newName);
@@ -201,8 +214,8 @@ describe('create-api', () => {
   });
 
   it('should error with HTTP 409 (Conflict) when renaming a sketch and the target already exists', async () => {
-    const name = v4();
-    const otherName = v4();
+    const name = UUID.uuid4();
+    const otherName = UUID.uuid4();
     const content = 'void setup(){} void loop(){}';
     const posixPath = toPosix(name);
     const otherPosixPath = toPosix(otherName);
@@ -229,8 +242,52 @@ describe('create-api', () => {
     expect(findByName(otherName, sketches)).to.be.not.undefined;
   });
 
+  it('should error with HTTP 422 when reading a file but is a directory', async () => {
+    const name = UUID.uuid4();
+    const content = 'void setup(){} void loop(){}';
+    const posixPath = toPosix(name);
+
+    await createApi.createSketch(posixPath, content);
+    const resources = await createApi.readDirectory(posixPath);
+    expect(resources).to.be.not.empty;
+
+    await rejects(createApi.readFile(posixPath), (thrown) =>
+      isUnprocessableContent(thrown)
+    );
+  });
+
+  it('should error with HTTP 422 when listing a directory but is a file', async () => {
+    const name = UUID.uuid4();
+    const content = 'void setup(){} void loop(){}';
+    const posixPath = toPosix(name);
+
+    await createApi.createSketch(posixPath, content);
+    const mainSketchFilePath = posixPath + posixPath + '.ino';
+    const sketchContent = await createApi.readFile(mainSketchFilePath);
+    expect(sketchContent).to.be.equal(content);
+
+    await rejects(createApi.readDirectory(mainSketchFilePath), (thrown) =>
+      isUnprocessableContent(thrown)
+    );
+  });
+
+  it("should error with HTTP 404 when deleting a non-existing directory via the '/files/d' endpoint", async () => {
+    const name = UUID.uuid4();
+    const posixPath = toPosix(name);
+
+    const sketches = await createApi.sketches();
+    const sketch = findByName(name, sketches);
+    expect(sketch).to.be.undefined;
+
+    await rejects(createApi.deleteDirectory(posixPath), (thrown) =>
+      isNotFound(thrown)
+    );
+  });
+
   ['.', '-', '_'].map((char) => {
-    it(`should create a new sketch with '${char}' in the sketch folder name although it's disallowed from the Create Editor`, async () => {
+    it(`should create a new sketch with '${char}' (character code: ${char.charCodeAt(
+      0
+    )}) in the sketch folder name although it's disallowed from the Create Editor`, async () => {
       const name = `sketch${char}`;
       const posixPath = toPosix(name);
       const newSketch = await createApi.createSketch(
@@ -259,7 +316,7 @@ describe('create-api', () => {
   });
 
   it("should fetch the sketch when transforming the 'secrets' into '#include' and the sketch is not in the cache", async () => {
-    const name = v4();
+    const name = UUID.uuid4();
     const posixPath = toPosix(name);
     const newSketch = await createApi.createSketch(
       posixPath,
@@ -300,19 +357,25 @@ describe('create-api', () => {
       diff < 0 ? '<' : diff > 0 ? '>' : '='
     } limit)`, async () => {
       const content = 'void setup(){} void loop(){}';
-      const maxLimit = 50; // https://github.com/arduino/arduino-ide/pull/875
+      const maxLimit = 10;
       const sketchCount = maxLimit + diff;
-      const sketchNames = [...Array(sketchCount).keys()].map(() => v4());
+      const sketchNames = [...Array(sketchCount).keys()].map(() =>
+        UUID.uuid4()
+      );
 
-      await sketchNames
-        .map((name) => createApi.createSketch(toPosix(name), content))
-        .reduce(async (acc, curr) => {
-          await acc;
-          return curr;
-        }, Promise.resolve() as Promise<unknown>);
+      const createExecutionQueue = new PQueue({
+        concurrency: 5,
+        autoStart: true,
+      });
+      sketchNames.forEach((name) =>
+        createExecutionQueue.add(() =>
+          createApi.createSketch(toPosix(name), content)
+        )
+      );
+      await createExecutionQueue.onIdle();
 
       createApi.resetRequestRecording();
-      const sketches = await createApi.sketches();
+      const sketches = await createApi.sketches(maxLimit);
       const allRequests = createApi.requestRecording.slice();
 
       expect(sketches.length).to.be.equal(sketchCount);

@@ -1,15 +1,20 @@
-import { inject, injectable } from '@theia/core/shared/inversify';
-import URI from '@theia/core/lib/common/uri';
+import { LOCKED_CLASS, lock } from '@theia/core/lib/browser/widgets/widget';
 import {
   Disposable,
   DisposableCollection,
 } from '@theia/core/lib/common/disposable';
-import { EditorServiceOverrides, MonacoEditor } from '@theia/monaco/lib/browser/monaco-editor';
-import { MonacoEditorProvider as TheiaMonacoEditorProvider } from '@theia/monaco/lib/browser/monaco-editor-provider';
-import { SketchesServiceClientImpl } from '../../sketches-service-client-impl';
+import URI from '@theia/core/lib/common/uri';
+import { Title, Widget } from '@theia/core/shared/@phosphor/widgets';
+import { inject, injectable } from '@theia/core/shared/inversify';
+import { EditorWidget } from '@theia/editor/lib/browser/editor-widget';
 import * as monaco from '@theia/monaco-editor-core';
 import type { ReferencesModel } from '@theia/monaco-editor-core/esm/vs/editor/contrib/gotoSymbol/browser/referencesModel';
-
+import {
+  EditorServiceOverrides,
+  MonacoEditor,
+} from '@theia/monaco/lib/browser/monaco-editor';
+import { MonacoEditorProvider as TheiaMonacoEditorProvider } from '@theia/monaco/lib/browser/monaco-editor-provider';
+import { SketchesServiceClientImpl } from '../../sketches-service-client-impl';
 
 type CancelablePromise = Promise<ReferencesModel> & {
   cancel: () => void;
@@ -39,7 +44,9 @@ export class MonacoEditorProvider extends TheiaMonacoEditorProvider {
 
   private installCustomReferencesController(editor: MonacoEditor): Disposable {
     const control = editor.getControl();
-    const referencesController: any = control.getContribution('editor.contrib.referencesController');
+    const referencesController: any = control.getContribution(
+      'editor.contrib.referencesController'
+    );
     const originalToggleWidget = referencesController.toggleWidget;
     const toDispose = new DisposableCollection();
     const toDisposeBeforeToggleWidget = new DisposableCollection();
@@ -96,4 +103,31 @@ export class MonacoEditorProvider extends TheiaMonacoEditorProvider {
     const readOnly = this.sketchesServiceClient.isReadOnly(model.uri);
     editor.updateOptions({ readOnly });
   }
+}
+
+// Theia cannot dynamically set an editor to writable once it was readonly.
+export function maybeUpdateReadOnlyState(
+  widget: EditorWidget,
+  isReadOnly: (uri: string | URI | monaco.Uri) => boolean
+): void {
+  const editor = widget.editor;
+  if (!(editor instanceof MonacoEditor)) {
+    return;
+  }
+  const model = editor.document;
+  const oldReadOnly = model.readOnly;
+  const resource = model['resource'];
+  const newReadOnly = Boolean(resource.isReadonly) || isReadOnly(resource.uri);
+  if (oldReadOnly !== newReadOnly) {
+    editor.getControl().updateOptions({ readOnly: newReadOnly });
+    if (newReadOnly) {
+      lock(widget.title);
+    } else {
+      unlock(widget.title);
+    }
+  }
+}
+
+function unlock(title: Title<Widget>): void {
+  title.className = title.className.replace(LOCKED_CLASS, '').trim();
 }

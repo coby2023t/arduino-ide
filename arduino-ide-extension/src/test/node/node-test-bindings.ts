@@ -111,7 +111,7 @@ class TestNotificationServiceServer implements NotificationServiceServer {
   notifyIndexUpdateDidFail(params: IndexUpdateDidFailParams): void {
     this.events.push(`notifyIndexUpdateDidFail:${JSON.stringify(params)}`);
   }
-  notifyDaemonDidStart(port: string): void {
+  notifyDaemonDidStart(port: number): void {
     this.events.push(`notifyDaemonDidStart:${port}`);
   }
   notifyDaemonDidStop(): void {
@@ -222,7 +222,7 @@ export async function createBaseContainer(
   }
   const container = new Container({ defaultScope: 'Singleton' });
   const module = new ContainerModule((bind, unbind, isBound, rebind) => {
-    bindCommon(bind);
+    bindCommon(bind, unbind, isBound, rebind);
     bind(CoreClientProvider).toSelf().inSingletonScope();
     bind(CoreServiceImpl).toSelf().inSingletonScope();
     bind(CoreService).toService(CoreServiceImpl);

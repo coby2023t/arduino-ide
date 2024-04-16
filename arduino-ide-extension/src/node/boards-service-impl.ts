@@ -1,38 +1,30 @@
-import { injectable, inject } from '@theia/core/shared/inversify';
 import { ILogger } from '@theia/core/lib/common/logger';
+import { nls } from '@theia/core/lib/common/nls';
 import { notEmpty } from '@theia/core/lib/common/objects';
+import { Mutable } from '@theia/core/lib/common/types';
+import { inject, injectable } from '@theia/core/shared/inversify';
 import {
-  BoardsService,
-  Installable,
-  BoardsPackage,
-  Board,
   BoardDetails,
+  BoardSearch,
+  BoardUserField,
+  BoardWithPackage,
+  BoardsPackage,
+  BoardsService,
+  CheckDebugEnabledParams,
   ConfigOption,
   ConfigValue,
+  DetectedPorts,
+  Installable,
+  NotificationServiceServer,
   Programmer,
   ResponseService,
-  NotificationServiceServer,
-  DetectedPorts,
-  BoardWithPackage,
-  BoardUserField,
-  BoardSearch,
-  sortComponents,
   SortGroup,
-  platformInstallFailed,
   createPlatformIdentifier,
   platformIdentifierEquals,
+  platformInstallFailed,
+  sortComponents,
 } from '../common/protocol';
-import {
-  PlatformInstallRequest,
-  PlatformListRequest,
-  PlatformListResponse,
-  PlatformSearchRequest,
-  PlatformSearchResponse,
-  PlatformUninstallRequest,
-} from './cli-protocol/cc/arduino/cli/commands/v1/core_pb';
-import { Platform } from './cli-protocol/cc/arduino/cli/commands/v1/common_pb';
 import { BoardDiscovery } from './board-discovery';
-import { CoreClientAware } from './core-client-provider';
 import {
   BoardDetailsRequest,
   BoardDetailsResponse,
@@ -40,15 +32,23 @@ import {
   BoardListAllResponse,
   BoardSearchRequest,
 } from './cli-protocol/cc/arduino/cli/commands/v1/board_pb';
+import { PlatformSummary } from './cli-protocol/cc/arduino/cli/commands/v1/common_pb';
+import {
+  PlatformInstallRequest,
+  PlatformSearchRequest,
+  PlatformSearchResponse,
+  PlatformUninstallRequest,
+} from './cli-protocol/cc/arduino/cli/commands/v1/core_pb';
+import { IsDebugSupportedRequest } from './cli-protocol/cc/arduino/cli/commands/v1/debug_pb';
 import {
   ListProgrammersAvailableForUploadRequest,
   ListProgrammersAvailableForUploadResponse,
   SupportedUserFieldsRequest,
   SupportedUserFieldsResponse,
 } from './cli-protocol/cc/arduino/cli/commands/v1/upload_pb';
+import { CoreClientAware } from './core-client-provider';
 import { ExecuteWithProgress } from './grpc-progressible';
 import { ServiceError } from './service-error';
-import { nls } from '@theia/core/lib/common';
 
 @injectable()
 export class BoardsServiceImpl
@@ -99,8 +99,6 @@ export class BoardsServiceImpl
       return undefined;
     }
 
-    const debuggingSupported = detailsResp.getDebuggingSupported();
-
     const requiredTools = detailsResp.getToolsDependenciesList().map((t) => ({
       name: t.getName(),
       packager: t.getPackager(),
@@ -146,6 +144,7 @@ export class BoardsServiceImpl
           platform: p.getPlatform(),
         }
     );
+    const defaultProgrammerId = detailsResp.getDefaultProgrammerId();
 
     let VID = 'N/A';
     let PID = 'N/A';
@@ -164,11 +163,41 @@ export class BoardsServiceImpl
       requiredTools,
       configOptions,
       programmers,
-      debuggingSupported,
       VID,
       PID,
       buildProperties,
+      ...(defaultProgrammerId ? { defaultProgrammerId } : {}),
     };
+  }
+
+  async checkDebugEnabled(params: CheckDebugEnabledParams): Promise<string> {
+    const { fqbn, programmer } = params;
+    const { client, instance } = await this.coreClient;
+    const req = new IsDebugSupportedRequest()
+      .setInstance(instance)
+      .setFqbn(fqbn)
+      .setProgrammer(programmer ?? '');
+    try {
+      const debugFqbn = await new Promise<string>((resolve, reject) =>
+        client.isDebugSupported(req, (err, resp) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          if (resp.getDebuggingSupported()) {
+            const debugFqbn = resp.getDebugFqbn();
+            if (debugFqbn) {
+              resolve(debugFqbn);
+            }
+          }
+          reject(new Error(`Debugging is not supported.`));
+        })
+      );
+      return debugFqbn;
+    } catch (err) {
+      console.error(`Failed to get debug config: ${fqbn}, ${programmer}`, err);
+      throw err;
+    }
   }
 
   async getBoardPackage(options: {
@@ -216,24 +245,22 @@ export class BoardsServiceImpl
 
   async getInstalledPlatforms(): Promise<BoardsPackage[]> {
     const { instance, client } = await this.coreClient;
-    return new Promise<BoardsPackage[]>((resolve, reject) => {
-      client.platformList(
-        new PlatformListRequest().setInstance(instance),
-        (err, response) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(
-            response
-              .getInstalledPlatformsList()
-              .map((platform, _, installedPlatforms) =>
-                toBoardsPackage(platform, installedPlatforms)
-              )
-          );
-        }
-      );
-    });
+    const resp = await new Promise<PlatformSearchResponse>(
+      (resolve, reject) => {
+        client.platformSearch(
+          new PlatformSearchRequest()
+            .setInstance(instance)
+            .setManuallyInstalled(true), // include core manually installed to the sketchbook
+          (err, resp) => (err ? reject(err) : resolve(resp))
+        );
+      }
+    );
+    const searchOutput = resp.getSearchOutputList();
+    return searchOutput
+      .map((message) => message.toObject(false))
+      .filter((summary) => summary.installedVersion) // only installed ones
+      .map(createBoardsPackage)
+      .filter(notEmpty);
   }
 
   private async handleListBoards(
@@ -256,12 +283,28 @@ export class BoardsServiceImpl
         for (const board of resp.getBoardsList()) {
           const platform = board.getPlatform();
           if (platform) {
-            const platformId = platform.getId();
+            const metadata = platform.getMetadata();
+            if (!metadata) {
+              console.warn(
+                `Platform metadata is missing for platform: ${JSON.stringify(
+                  platform.toObject(false)
+                )}. Skipping`
+              );
+              continue;
+            }
+            const platformId = metadata.getId();
+            const release = platform.getRelease();
+            if (!release) {
+              console.warn(
+                `Platform release is missing for platform: ${platformId}. Skipping`
+              );
+              continue;
+            }
             const fqbn = board.getFqbn() || undefined; // prefer undefined over empty string
             const parsedPlatformId = createPlatformIdentifier(platformId);
             if (!parsedPlatformId) {
               console.warn(
-                `Could not create platform identifier from platform ID input: ${platform.getId()}. Skipping`
+                `Could not create platform identifier from platform ID input: ${platformId}. Skipping`
               );
               continue;
             }
@@ -288,8 +331,8 @@ export class BoardsServiceImpl
               name: board.getName(),
               fqbn: board.getFqbn(),
               packageId: parsedPlatformId,
-              packageName: platform.getName(),
-              manuallyInstalled: platform.getManuallyInstalled(),
+              packageName: release.getName(),
+              manuallyInstalled: metadata.getManuallyInstalled(),
             });
           }
         }
@@ -344,89 +387,25 @@ export class BoardsServiceImpl
     const coreClient = await this.coreClient;
     const { client, instance } = coreClient;
 
-    const installedPlatformsReq = new PlatformListRequest();
-    installedPlatformsReq.setInstance(instance);
-    const installedPlatformsResp = await new Promise<PlatformListResponse>(
-      (resolve, reject) => {
-        client.platformList(installedPlatformsReq, (err, resp) => {
-          !!err ? reject(err) : resolve(resp);
-        });
-      }
-    );
-    const installedPlatforms =
-      installedPlatformsResp.getInstalledPlatformsList();
-
-    const req = new PlatformSearchRequest();
-    req.setSearchArgs(options.query || '');
-    req.setAllVersions(true);
-    req.setInstance(instance);
+    // `core search` returns with all platform versions when the command is executed via gRPC or with `--format json`
+    // The `--all` flag is applicable only when filtering for the human-readable (`--format text`) output of the CLI
     const resp = await new Promise<PlatformSearchResponse>(
       (resolve, reject) => {
-        client.platformSearch(req, (err, resp) => {
-          !!err ? reject(err) : resolve(resp);
-        });
+        client.platformSearch(
+          new PlatformSearchRequest()
+            .setInstance(instance)
+            .setSearchArgs(options.query ?? ''),
+          (err, resp) => (err ? reject(err) : resolve(resp))
+        );
       }
     );
-    const packages = new Map<string, BoardsPackage>();
-    // We must group the cores by ID, and sort platforms by, first the installed version, then version alphabetical order.
-    // Otherwise we lose the FQBN information.
-    const groupedById: Map<string, Platform[]> = new Map();
-    for (const platform of resp.getSearchOutputList()) {
-      const id = platform.getId();
-      const idGroup = groupedById.get(id);
-      if (idGroup) {
-        idGroup.push(platform);
-      } else {
-        groupedById.set(id, [platform]);
-      }
-    }
-    const installedAwareVersionComparator = (
-      left: Platform,
-      right: Platform
-    ) => {
-      // XXX: we cannot rely on `platform.getInstalled()`, it is always an empty string.
-      const leftInstalled = !!installedPlatforms.find(
-        (ip) =>
-          ip.getId() === left.getId() && ip.getInstalled() === left.getLatest()
-      );
-      const rightInstalled = !!installedPlatforms.find(
-        (ip) =>
-          ip.getId() === right.getId() &&
-          ip.getInstalled() === right.getLatest()
-      );
-      if (leftInstalled && !rightInstalled) {
-        return -1;
-      }
-      if (!leftInstalled && rightInstalled) {
-        return 1;
-      }
-
-      const invertedVersionComparator =
-        Installable.Version.COMPARATOR(left.getLatest(), right.getLatest()) *
-        -1;
-      // Higher version comes first.
-
-      return invertedVersionComparator;
-    };
-    for (const value of groupedById.values()) {
-      value.sort(installedAwareVersionComparator);
-    }
-
-    for (const value of groupedById.values()) {
-      for (const platform of value) {
-        const id = platform.getId();
-        const pkg = packages.get(id);
-        if (pkg) {
-          pkg.availableVersions.push(platform.getLatest());
-          pkg.availableVersions.sort(Installable.Version.COMPARATOR).reverse();
-        } else {
-          packages.set(id, toBoardsPackage(platform, installedPlatforms));
-        }
-      }
-    }
-
-    const filter = this.typePredicate(options);
-    const boardsPackages = [...packages.values()].filter(filter);
+    const typeFilter = this.typePredicate(options);
+    const searchOutput = resp.getSearchOutputList();
+    const boardsPackages = searchOutput
+      .map((message) => message.toObject(false))
+      .map(createBoardsPackage)
+      .filter(notEmpty)
+      .filter(typeFilter);
     return sortComponents(boardsPackages, boardsPackageSortGroup);
   }
 
@@ -593,36 +572,52 @@ function boardsPackageSortGroup(boardsPackage: BoardsPackage): SortGroup {
   return types.join('-') as SortGroup;
 }
 
-function toBoardsPackage(
-  platform: Platform,
-  installedPlatforms: Platform[]
-): BoardsPackage {
-  let installedVersion: string | undefined;
-  const matchingPlatform = installedPlatforms.find(
-    (ip) => ip.getId() === platform.getId()
-  );
-  if (!!matchingPlatform) {
-    installedVersion = matchingPlatform.getInstalled();
+function createBoardsPackage(
+  summary: PlatformSummary.AsObject
+): BoardsPackage | undefined {
+  if (!isPlatformSummaryWithMetadata(summary)) {
+    return undefined;
   }
-  return {
-    id: platform.getId(),
-    name: platform.getName(),
-    author: platform.getMaintainer(),
-    availableVersions: [platform.getLatest()],
-    description: platform
-      .getBoardsList()
-      .map((b) => b.getName())
-      .join(', '),
-    types: platform.getTypeList(),
-    deprecated: platform.getDeprecated(),
+  const versionReleaseMap = new Map(summary.releasesMap);
+  const actualRelease =
+    versionReleaseMap.get(summary.installedVersion) ??
+    versionReleaseMap.get(summary.latestVersion);
+  if (!actualRelease) {
+    return undefined;
+  }
+  const { name, typeList, boardsList, deprecated, compatible } = actualRelease;
+  if (!compatible) {
+    return undefined; // never show incompatible platforms
+  }
+  const { id, website, maintainer } = summary.metadata;
+  const availableVersions = Array.from(versionReleaseMap.keys())
+    .sort(Installable.Version.COMPARATOR)
+    .reverse();
+  const boardsPackage: Mutable<BoardsPackage> = {
+    id,
+    name,
     summary: nls.localize(
       'arduino/component/boardsIncluded',
       'Boards included in this package:'
     ),
-    installedVersion,
-    boards: platform
-      .getBoardsList()
-      .map((b) => <Board>{ name: b.getName(), fqbn: b.getFqbn() }),
-    moreInfoLink: platform.getWebsite(),
+    description: boardsList.map(({ name }) => name).join(', '),
+    boards: boardsList,
+    types: typeList,
+    moreInfoLink: website,
+    author: maintainer,
+    deprecated,
+    availableVersions,
   };
+  if (summary.installedVersion) {
+    boardsPackage.installedVersion = summary.installedVersion;
+  }
+  return boardsPackage;
+}
+
+type PlatformSummaryWithMetadata = PlatformSummary.AsObject &
+  Required<Pick<PlatformSummary.AsObject, 'metadata'>>;
+function isPlatformSummaryWithMetadata(
+  summary: PlatformSummary.AsObject
+): summary is PlatformSummaryWithMetadata {
+  return Boolean(summary.metadata);
 }

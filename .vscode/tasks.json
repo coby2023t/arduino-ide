@@ -4,8 +4,11 @@
     {
       "label": "Rebuild App",
       "type": "shell",
-      "command": "yarn rebuild:browser && yarn rebuild:electron",
+      "command": "yarn rebuild",
       "group": "build",
+      "options": {
+        "cwd": "${workspaceFolder}/electron-app"
+      },
       "presentation": {
         "reveal": "always",
         "panel": "new",
@@ -37,10 +40,7 @@
     {
       "label": "Watch All",
       "type": "shell",
-      "dependsOn": [
-        "Watch Extension",
-        "Watch App"
-      ]
+      "dependsOn": ["Watch Extension", "Watch App"]
     }
   ]
 }

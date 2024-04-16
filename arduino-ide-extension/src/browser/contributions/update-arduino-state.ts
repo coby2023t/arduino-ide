@@ -1,7 +1,7 @@
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
 import URI from '@theia/core/lib/common/uri';
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { HostedPluginSupport } from '@theia/plugin-ext/lib/hosted/browser/hosted-plugin';
+import { HostedPluginSupport } from '../hosted/hosted-plugin-support';
 import type { ArduinoState } from 'vscode-arduino-api';
 import {
   BoardsService,
@@ -21,7 +21,10 @@ import { BoardsServiceProvider } from '../boards/boards-service-provider';
 import { CurrentSketch } from '../sketches-service-client-impl';
 import { SketchContribution } from './contribution';
 
-interface UpdateStateParams<T extends ArduinoState> {
+/**
+ * (non-API) exported for tests
+ */
+export interface UpdateStateParams<T extends ArduinoState = ArduinoState> {
   readonly key: keyof T;
   readonly value: T[keyof T];
 }
@@ -65,10 +68,13 @@ export class UpdateArduinoState extends SketchContribution {
           this.updateCompileSummary(args[0]);
         }
       }),
-      this.boardsDataStore.onChanged((fqbn) => {
+      this.boardsDataStore.onDidChange((event) => {
         const selectedFqbn =
           this.boardsServiceProvider.boardsConfig.selectedBoard?.fqbn;
-        if (selectedFqbn && fqbn.includes(selectedFqbn)) {
+        if (
+          selectedFqbn &&
+          event.changes.find((change) => change.fqbn === selectedFqbn)
+        ) {
           this.updateBoardDetails(selectedFqbn);
         }
       }),
@@ -76,7 +82,9 @@ export class UpdateArduinoState extends SketchContribution {
   }
 
   override onReady(): void {
-    this.updateBoardsConfig(this.boardsServiceProvider.boardsConfig); // TODO: verify!
+    this.boardsServiceProvider.ready.then(() => {
+      this.updateBoardsConfig(this.boardsServiceProvider.boardsConfig);
+    });
     this.updateSketchPath(this.sketchServiceClient.tryGetCurrentSketch());
     this.updateUserDirPath(this.configService.tryGetSketchDirUri());
     this.updateDataDirPath(this.configService.tryGetDataDirUri());

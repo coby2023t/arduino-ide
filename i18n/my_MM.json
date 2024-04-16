@@ -1,13 +1,13 @@
 {
   "arduino": {
     "about": {
-      "detail": "Version: {0}\nDate: {1}{2}\nCLI Version: {3}\n\n{4}",
+      "detail": "ဗားရှင်း - {0}\nရက်စွဲ  {1}{2}\nCLI ဗားရှင်း - {3}\n\n{4}",
       "label": "{0} အကြောင်း"
     },
     "account": {
-      "goToCloudEditor": "Go to Cloud Editor",
-      "goToIoTCloud": "Go to IoT Cloud",
-      "goToProfile": "Go to Profile",
+      "goToCloudEditor": "Cloudအယ်ဒီတာသို့သွားမည်",
+      "goToIoTCloud": "IoT Cloudသို့သွားမည်",
+      "goToProfile": "ပရိုဖိုင်သို့သွားမည်",
       "menuTitle": "Arduino Cloud"
     },
     "board": {
@@ -18,7 +18,7 @@
       "configDialog1": "ကုတ်ဖိုင်တစ်ခုကို upload တင်လိုပါက ဘုတ်နှင့်အပေါက် နှစ်ခုလုံးကို ရွေးပေးပါ။",
       "configDialog2": "သင် ဘုတ်တစ်ခုထဲကိုသာ ရွေးချယ်ထားပါက compile ပြုလုပ်နိုင်သော်လည်း ကုဒ်ဖိုင်ကိုတော့ upload မတင်နိုင်ပါ။",
       "couldNotFindPreviouslySelected": "တပ်ဆင်ထားသည့် ပလက်ဖောင်း '{1}' ထဲမှာ ယခင်ရွေးချယ်ထားသည့်ဘုတ် '{0}' ကို ရှာမတွေ့ပါ။ ကျေးဇူးပြု၍ မိမိအသုံးပြုလိုသည့် ဘုတ်ကို မိမိကိုယ်တိုင် ပြန်လည်ရွေးချယ်ပေးပါ။ သင်အခု ပြန်လည်ရွေးချယ် လိုပါသလား?",
-      "editBoardsConfig": "Edit Board and Port...",
+      "editBoardsConfig": "ဘုတ်နှင့်ကွန်ရက်ဆိပ်ကမ်းများတည်းဖြတ်မည်...",
       "getBoardInfo": "ဘုတ်ဆိုင်ရာအချက်အလက်ရယူမည်",
       "inSketchbook": " (Sketchbook ဖိုင်တွဲထဲ)",
       "installNow": "လက်ရှိရွေးချယ်ထားသည့် \"{2}\" ဘုတ်အတွက် \"{0} {1}\" core အား တပ်ဆင်ဖို့လိုပါသည်။ သင်ယခု တပ်ဆင်လိုပါသလား?",
@@ -41,8 +41,8 @@
       "succesfullyInstalledPlatform": "{0} ပလက်ဖောင်းကို အောင်မြင်စွာ တပ်ဆင်ပြီးသည် :{1}",
       "succesfullyUninstalledPlatform": "{0} ပလက်ဖောင်းကို အောင်မြင်စွာ ဖြုတ်ချပြီးသည် :{1}",
       "typeOfPorts": "{0} အပေါက်များ",
-      "unconfirmedBoard": "Unconfirmed board",
-      "unknownBoard": "Unknown board"
+      "unconfirmedBoard": "အတည်မပြုရသေးသောဘုတ်ပြား",
+      "unknownBoard": "အမျိုးအမည်မသိဘုတ်ပြား"
     },
     "boardsManager": "ဘုတ်မန်နေဂျာ",
     "boardsType": {
@@ -139,6 +139,7 @@
       "installManually": "ကိုယ်တိုင်တပ်ဆင်မည်",
       "later": "နောက်မှ",
       "noBoardSelected": "ဘုတ် မရွေးချယ်ထားပါ",
+      "noSketchOpened": "No sketch opened",
       "notConnected": "[မချိတ်ဆက်ထားပါ]",
       "offlineIndicator": "အော့ဖ်လိုင်းဖြစ်နေသည်။ အင်တာနက်မရှိလျှင် Arduino CLIသည် လိုအပ်သော ဒေတာများမရယူနိုင်သောကြောင့် လုပ်ဆောင်ချက်ချို့ယွင်းမှုဖြစ်ပေါ်မည်။ အင်တာနက်နှင့်ချိတ်ဆက်ပြီး အပ္ပလီကေးရှင်းကို ပြန်စတင်ပေးပါ။",
       "oldFormat": "'{0}'သည် မူပုံစံအဟောင်း `.pde`ကိုအသုံးပြုထားသည်။ ဖိုင်လ်တိုးချဲ့အမှတ်အသားအသစ် `.ino` သို့ ပြောင်းလဲမှာလား။",
@@ -146,6 +147,7 @@
       "processing": "အဆင့်ဆင့်ဆောင်ရွက်နေသည်",
       "recommended": "အသုံးပြုရန်အကြုံပြုထားသည်များ",
       "retired": "အငြိမ်းစား",
+      "selectManually": "ကိုယ်တိုင်ရွေးချယ်",
       "selectedOn": "{0}တွင်",
       "serialMonitor": "အတန်းလိုက်ဆက်သွယ်မှုမော်နီတာ",
       "type": "အမျိုးအစား",
@@ -161,7 +163,7 @@
       "clickToOpen": "Click to open in browser: {0}",
       "filterSearch": "သင်၏ရှာဖွေမှုရလဒ်ကိုစစ်ထုတ်မည်…",
       "install": "တပ်ဆင်မည်",
-      "installLatest": "Install Latest",
+      "installLatest": "နောက်ဆုံးပေါ်များတပ်ဆင်မည်",
       "installVersion": "Install {0}",
       "installed": "{0} installed",
       "moreInfo": "နောက်ထပ်အချက်အလက်များ",
@@ -209,7 +211,9 @@
     "debug": {
       "debugWithMessage": "ပြစ်ချက်ရှာဖွေချက် - {0}",
       "debuggingNotSupported": "ကုတ်ပြစ်ချက်ရှာဖွေမှုကို '{0}'မှ မပေးထားပါ",
+      "getDebugInfo": "Getting debug info...",
       "noPlatformInstalledFor": "'{0}' အတွက် ပလက်ဖောင်းကို မထည့်သွင်းရသေးပါ",
+      "noProgrammerSelectedFor": "No programmer selected for '{0}'",
       "optimizeForDebugging": "ကုတ်ပြစ်ချက်ရှာဖွေရန်အတွက်ဦးစားပေးမည်",
       "sketchIsNotCompiled": "Sketch '{0}' must be verified before starting a debug session. Please verify the sketch and start debugging again. Do you want to verify the sketch now?"
     },
@@ -381,6 +385,7 @@
       "invalid.editorFontSize": "အယ်ဒီတာဖောင့်အရွယ်အစားမမှန်ကန်ပါ။ အပေါင်းကိန်းပြည့်ဖြစ်ရပါမည်။",
       "invalid.sketchbook.location": "မမှန်ကန်သောကုတ်ဖိုင်လ်စာအုပ်တည်နေရာ-{0}",
       "invalid.theme": "မမှန်ကန်သောသင်း",
+      "language.asyncWorkers": "Number of async workers used by the Arduino Language Server (clangd). Background index also uses this many workers. The minimum value is 0, and the maximum is 8. When it is 0, the language server uses all available cores. The default value is 0.",
       "language.log": "အမှန်ဖြစ်နေပါက Arduinoဘာသာစကားစစ်ဆေးမှုဆာဗာသည် မှတ်တမ်းဖိုင်လ်များကို ကုတ်ဖိုင်လ်ဖိုလ်ဒါတွင် ထုတ်ပေးမည်။ မူရင်းတန်းဖိုးသည် အမှားဖြစ်သည်။",
       "language.realTimeDiagnostics": "အမှန်ခြစ်ထားပါက အယ်ဒီတာတွင် စာရေးသောအခါ ဘာသာစကားစစ်ဆေးမှုဆာဗာသည် အချိန်နှင့်တပြေးညီ စစ်ဆေးပေးမည်။ မူလတန်ဖိုးသည် အမှားဖြစ်သည်။",
       "manualProxy": "ကိုယ်တိုင် ကြားခံကွန်ရက်ပြင်ဆင်ခြင်း",
@@ -460,6 +465,8 @@
       "saveSketchAs": "ကုတ်ဖိုင်လ် ဖိုလ်ဒါကို သိမ်းမည်…",
       "showFolder": "ကုတ်ပုံကြမ်းဖိုလ်ဒါပြမည်",
       "sketch": "ကုတ်ပုံကြမ်း",
+      "sketchAlreadyContainsThisFileError": "The sketch already contains a file named '{0}'",
+      "sketchAlreadyContainsThisFileMessage": "Failed to save sketch \"{0}\" as \"{1}\". {2}",
       "sketchbook": "ကုတ်ဖိုင်လ်စာအုပ်",
       "titleLocalSketchbook": "စက်တွင်းကုတ်ဖိုင်လ်စာအုပ်",
       "titleSketchbook": "ကုတ်ဖိုင်လ်စာအုပ်",
@@ -486,7 +493,7 @@
       "hc": "Dark High Contrast",
       "hcLight": "Light High Contrast",
       "light": "Light",
-      "user": "{0} (user)"
+      "user": "{0} (သုံးစွဲသူ)"
     },
     "title": {
       "cloud": "Cloud"

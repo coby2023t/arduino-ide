@@ -1,5 +1,5 @@
 import '../../src/browser/style/index.css';
-import { ContainerModule } from '@theia/core/shared/inversify';
+import { Container, ContainerModule } from '@theia/core/shared/inversify';
 import { WidgetFactory } from '@theia/core/lib/browser/widget-manager';
 import { CommandContribution } from '@theia/core/lib/common/command';
 import { bindViewContribution } from '@theia/core/lib/browser/shell/view-contribution';
@@ -180,7 +180,7 @@ import { TabBarRenderer } from './theia/core/tab-bars';
 import { EditorCommandContribution } from './theia/editor/editor-command';
 import { NavigatorTabBarDecorator as TheiaNavigatorTabBarDecorator } from '@theia/navigator/lib/browser/navigator-tab-bar-decorator';
 import { NavigatorTabBarDecorator } from './theia/navigator/navigator-tab-bar-decorator';
-import { Debug } from './contributions/debug';
+import { Debug, DebugDisabledStatusMessageSource } from './contributions/debug';
 import { Sketchbook } from './contributions/sketchbook';
 import { DebugFrontendApplicationContribution } from './theia/debug/debug-frontend-application-contribution';
 import { DebugFrontendApplicationContribution as TheiaDebugFrontendApplicationContribution } from '@theia/debug/lib/browser/debug-frontend-application-contribution';
@@ -271,8 +271,8 @@ import { MonitorModel } from './monitor-model';
 import { MonitorManagerProxyClientImpl } from './monitor-manager-proxy-client-impl';
 import { EditorManager as TheiaEditorManager } from '@theia/editor/lib/browser/editor-manager';
 import { EditorManager } from './theia/editor/editor-manager';
-import { HostedPluginEvents } from './hosted-plugin-events';
-import { HostedPluginSupport } from './theia/plugin-ext/hosted-plugin';
+import { HostedPluginEvents } from './hosted/hosted-plugin-events';
+import { HostedPluginSupportImpl } from './theia/plugin-ext/hosted-plugin';
 import { HostedPluginSupport as TheiaHostedPluginSupport } from '@theia/plugin-ext/lib/hosted/browser/hosted-plugin';
 import { Formatter, FormatterPath } from '../common/protocol/formatter';
 import { Format } from './contributions/format';
@@ -358,6 +358,20 @@ import { MonacoEditorMenuContribution as TheiaMonacoEditorMenuContribution } fro
 import { UpdateArduinoState } from './contributions/update-arduino-state';
 import { TerminalFrontendContribution } from './theia/terminal/terminal-frontend-contribution';
 import { TerminalFrontendContribution as TheiaTerminalFrontendContribution } from '@theia/terminal/lib/browser/terminal-frontend-contribution';
+import { SelectionService } from '@theia/core/lib/common/selection-service';
+import { CommandService } from '@theia/core/lib/common/command';
+import { CorePreferences } from '@theia/core/lib/browser/core-preferences';
+import { AutoSelectProgrammer } from './contributions/auto-select-programmer';
+import { HostedPluginSupport } from './hosted/hosted-plugin-support';
+import { DebugSessionManager as TheiaDebugSessionManager } from '@theia/debug/lib/browser/debug-session-manager';
+import { DebugSessionManager } from './theia/debug/debug-session-manager';
+import { DebugWidget as TheiaDebugWidget } from '@theia/debug/lib/browser/view/debug-widget';
+import { DebugWidget } from './theia/debug/debug-widget';
+import { DebugViewModel } from '@theia/debug/lib/browser/view/debug-view-model';
+import { DebugSessionWidget } from '@theia/debug/lib/browser/view/debug-session-widget';
+import { DebugConfigurationWidget } from './theia/debug/debug-configuration-widget';
+import { DebugConfigurationWidget as TheiaDebugConfigurationWidget } from '@theia/debug/lib/browser/view/debug-configuration-widget';
+import { DebugToolBar } from '@theia/debug/lib/browser/view/debug-toolbar-widget';
 
 // Hack to fix copy/cut/paste issue after electron version update in Theia.
 // https://github.com/eclipse-theia/theia/issues/12487
@@ -451,6 +465,9 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
   // To be able to track, and update the menu based on the core settings (aka. board details) of the currently selected board.
   bind(BoardsDataStore).toSelf().inSingletonScope();
   bind(FrontendApplicationContribution).toService(BoardsDataStore);
+  bind(CommandContribution).toService(BoardsDataStore);
+  bind(StartupTaskProvider).toService(BoardsDataStore); // to inherit the boards config options, programmer, etc in a new window
+
   // Logger for the Arduino daemon
   bind(ILogger)
     .toDynamicValue((ctx) => {
@@ -750,9 +767,12 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
   Contribution.configure(bind, CreateCloudCopy);
   Contribution.configure(bind, UpdateArduinoState);
   Contribution.configure(bind, BoardsDataMenuUpdater);
+  Contribution.configure(bind, AutoSelectProgrammer);
 
   bindContributionProvider(bind, StartupTaskProvider);
   bind(StartupTaskProvider).toService(BoardsServiceProvider); // to reuse the boards config in another window
+
+  bind(DebugDisabledStatusMessageSource).toService(Debug);
 
   // Disabled the quick-pick customization from Theia when multiple formatters are available.
   // Use the default VS Code behavior, and pick the first one. In the IDE2, clang-format has `exclusive` selectors.
@@ -796,10 +816,19 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     );
     const iconThemeService =
       context.container.get<IconThemeService>(IconThemeService);
+    const selectionService =
+      context.container.get<SelectionService>(SelectionService);
+    const commandService =
+      context.container.get<CommandService>(CommandService);
+    const corePreferences =
+      context.container.get<CorePreferences>(CorePreferences);
     return new TabBarRenderer(
       contextMenuRenderer,
       decoratorService,
-      iconThemeService
+      iconThemeService,
+      selectionService,
+      commandService,
+      corePreferences
     );
   });
 
@@ -842,6 +871,28 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
   // To be able to use a `launch.json` from outside of the workspace.
   bind(DebugConfigurationManager).toSelf().inSingletonScope();
   rebind(TheiaDebugConfigurationManager).toService(DebugConfigurationManager);
+  // To update the currently selected debug config <select> option when starting a debug session.
+  bind(DebugSessionManager).toSelf().inSingletonScope();
+  rebind(TheiaDebugSessionManager).toService(DebugSessionManager);
+  // Customized debug widget with its customized config <select> to update it programmatically.
+  bind(WidgetFactory)
+    .toDynamicValue(({ container }) => ({
+      id: TheiaDebugWidget.ID,
+      createWidget: () => {
+        const child = new Container({ defaultScope: 'Singleton' });
+        child.parent = container;
+        child.bind(DebugViewModel).toSelf();
+        child.bind(DebugToolBar).toSelf();
+        child.bind(DebugSessionWidget).toSelf();
+        child.bind(DebugConfigurationWidget).toSelf(); // with the patched select
+        child // use the customized one in the Theia DI
+          .bind(TheiaDebugConfigurationWidget)
+          .toService(DebugConfigurationWidget);
+        child.bind(DebugWidget).toSelf();
+        return child.get(DebugWidget);
+      },
+    }))
+    .inSingletonScope();
 
   // To avoid duplicate tabs use deepEqual instead of string equal: https://github.com/eclipse-theia/theia/issues/11309
   bind(WidgetManager).toSelf().inSingletonScope();
@@ -970,8 +1021,9 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     })
     .inSingletonScope();
 
-  bind(HostedPluginSupport).toSelf().inSingletonScope();
-  rebind(TheiaHostedPluginSupport).toService(HostedPluginSupport);
+  bind(HostedPluginSupportImpl).toSelf().inSingletonScope();
+  bind(HostedPluginSupport).toService(HostedPluginSupportImpl);
+  rebind(TheiaHostedPluginSupport).toService(HostedPluginSupportImpl);
   bind(HostedPluginEvents).toSelf().inSingletonScope();
   bind(FrontendApplicationContribution).toService(HostedPluginEvents);
 

@@ -1,4 +1,4 @@
-import type { ClientDuplexStream } from '@grpc/grpc-js';
+import type { ClientReadableStream } from '@grpc/grpc-js';
 import {
   Disposable,
   DisposableCollection,
@@ -9,9 +9,9 @@ import { deepClone } from '@theia/core/lib/common/objects';
 import { Deferred } from '@theia/core/lib/common/promise-util';
 import type { Mutable } from '@theia/core/lib/common/types';
 import { BackendApplicationContribution } from '@theia/core/lib/node/backend-application';
+import { UUID } from '@theia/core/shared/@phosphor/coreutils';
 import { inject, injectable, named } from '@theia/core/shared/inversify';
 import { isDeepStrictEqual } from 'util';
-import { v4 } from 'uuid';
 import { Unknown } from '../common/nls';
 import {
   Board,
@@ -30,9 +30,9 @@ import type { Port as RpcPort } from './cli-protocol/cc/arduino/cli/commands/v1/
 import { CoreClientAware } from './core-client-provider';
 import { ServiceError } from './service-error';
 
-type Duplex = ClientDuplexStream<BoardListWatchRequest, BoardListWatchResponse>;
+type Stream = ClientReadableStream<BoardListWatchResponse>;
 interface StreamWrapper extends Disposable {
-  readonly stream: Duplex;
+  readonly stream: Stream;
   readonly uuid: string; // For logging only
 }
 
@@ -121,34 +121,15 @@ export class BoardDiscovery
     return Disposable.create(() => clearTimeout(timer));
   }
 
-  private async requestStartWatch(
-    req: BoardListWatchRequest,
-    duplex: Duplex
-  ): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      if (
-        !duplex.write(req, (err: Error | undefined) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-        })
-      ) {
-        duplex.once('drain', resolve);
-      } else {
-        process.nextTick(resolve);
-      }
-    });
-  }
-
   private async createWrapper(
-    client: ArduinoCoreServiceClient
+    client: ArduinoCoreServiceClient,
+    req: BoardListWatchRequest
   ): Promise<StreamWrapper> {
     if (this.wrapper) {
       throw new Error(`Duplex was already set.`);
     }
     const stream = client
-      .boardListWatch()
+      .boardListWatch(req)
       .on('end', () => {
         this.logger.info('received end');
         this.onStreamDidEndEmitter.fire();
@@ -168,7 +149,7 @@ export class BoardDiscovery
       });
     const wrapper = {
       stream,
-      uuid: v4(),
+      uuid: UUID.uuid4(),
       dispose: () => {
         this.logger.info('disposing requesting cancel');
         // Cancelling the stream will kill the discovery `builtin:mdns-discovery process`.
@@ -202,14 +183,11 @@ export class BoardDiscovery
     this.watching = new Deferred();
     this.logger.info('start new deferred');
     const { client, instance } = await this.coreClient;
-    const wrapper = await this.createWrapper(client);
-    wrapper.stream.on('data', (resp) => this.onBoardListWatchResponse(resp));
-    this.logger.info('start request start watch');
-    await this.requestStartWatch(
-      new BoardListWatchRequest().setInstance(instance),
-      wrapper.stream
+    const wrapper = await this.createWrapper(
+      client,
+      new BoardListWatchRequest().setInstance(instance)
     );
-    this.logger.info('start requested start watch');
+    wrapper.stream.on('data', (resp) => this.onBoardListWatchResponse(resp));
     this.watching.resolve();
     this.logger.info('start resolved watching');
   }
@@ -289,24 +267,12 @@ export class BoardDiscovery
       const { port, boards } = detectedPort;
       const key = Port.keyOf(port);
       if (eventType === EventType.Add) {
-        const alreadyDetectedPort = newState[key];
-        if (alreadyDetectedPort) {
-          console.warn(
-            `Detected a new port that has been already discovered. The old value will be overridden. Old value: ${JSON.stringify(
-              alreadyDetectedPort
-            )}, new value: ${JSON.stringify(detectedPort)}`
-          );
-        }
+        // Note that, the serial discovery might detect port details (such as addressLabel) in chunks.
+        // For example, first, the Teensy 4.1 port is detected with the `[no_device] Triple Serial` address label,
+        // Then, when more refinements are available, the same port is detected with `/dev/cu.usbmodem127902301 Triple Serial` address label.
+        // In such cases, an `add` event is received from the CLI, and the the detected port is overridden in the state.
         newState[key] = { port, boards };
       } else if (eventType === EventType.Remove) {
-        const alreadyDetectedPort = newState[key];
-        if (!alreadyDetectedPort) {
-          console.warn(
-            `Detected a port removal but it has not been discovered. This is most likely a bug! Detected port was: ${JSON.stringify(
-              detectedPort
-            )}`
-          );
-        }
         delete newState[key];
       }
     }
