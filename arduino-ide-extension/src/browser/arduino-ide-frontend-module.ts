@@ -1,5 +1,9 @@
 import '../../src/browser/style/index.css';
-import { Container, ContainerModule } from '@theia/core/shared/inversify';
+import {
+  Container,
+  ContainerModule,
+  interfaces,
+} from '@theia/core/shared/inversify';
 import { WidgetFactory } from '@theia/core/lib/browser/widget-manager';
 import { CommandContribution } from '@theia/core/lib/common/command';
 import { bindViewContribution } from '@theia/core/lib/browser/shell/view-contribution';
@@ -53,6 +57,8 @@ import {
   DockPanelRenderer as TheiaDockPanelRenderer,
   TabBarRendererFactory,
   ContextMenuRenderer,
+  createTreeContainer,
+  TreeWidget,
 } from '@theia/core/lib/browser';
 import { MenuContribution } from '@theia/core/lib/common/menu';
 import {
@@ -125,7 +131,10 @@ import { OpenSketch } from './contributions/open-sketch';
 import { Close } from './contributions/close';
 import { SaveAsSketch } from './contributions/save-as-sketch';
 import { SaveSketch } from './contributions/save-sketch';
-import { VerifySketch } from './contributions/verify-sketch';
+import {
+  CompileSummaryProvider,
+  VerifySketch,
+} from './contributions/verify-sketch';
 import { UploadSketch } from './contributions/upload-sketch';
 import { CommonFrontendContribution } from './theia/core/common-frontend-contribution';
 import { EditContributions } from './contributions/edit-contributions';
@@ -372,6 +381,19 @@ import { DebugSessionWidget } from '@theia/debug/lib/browser/view/debug-session-
 import { DebugConfigurationWidget } from './theia/debug/debug-configuration-widget';
 import { DebugConfigurationWidget as TheiaDebugConfigurationWidget } from '@theia/debug/lib/browser/view/debug-configuration-widget';
 import { DebugToolBar } from '@theia/debug/lib/browser/view/debug-toolbar-widget';
+import {
+  PluginTree,
+  PluginTreeModel,
+  TreeViewWidgetOptions,
+  VIEW_ITEM_CONTEXT_MENU,
+} from '@theia/plugin-ext/lib/main/browser/view/tree-view-widget';
+import { TreeViewDecoratorService } from '@theia/plugin-ext/lib/main/browser/view/tree-view-decorator-service';
+import { PLUGIN_VIEW_DATA_FACTORY_ID } from '@theia/plugin-ext/lib/main/browser/view/plugin-view-registry';
+import { TreeViewWidget } from './theia/plugin-ext/tree-view-widget';
+import {
+  VersionWelcomeDialog,
+  VersionWelcomeDialogProps,
+} from './dialogs/version-welcome-dialog';
 
 // Hack to fix copy/cut/paste issue after electron version update in Theia.
 // https://github.com/eclipse-theia/theia/issues/12487
@@ -769,6 +791,8 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
   Contribution.configure(bind, BoardsDataMenuUpdater);
   Contribution.configure(bind, AutoSelectProgrammer);
 
+  bind(CompileSummaryProvider).toService(VerifySketch);
+
   bindContributionProvider(bind, StartupTaskProvider);
   bind(StartupTaskProvider).toService(BoardsServiceProvider); // to reuse the boards config in another window
 
@@ -999,6 +1023,11 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     title: 'IDEUpdater',
   });
 
+  bind(VersionWelcomeDialog).toSelf().inSingletonScope();
+  bind(VersionWelcomeDialogProps).toConstantValue({
+    title: 'VersionWelcomeDialog',
+  });
+
   bind(UserFieldsDialog).toSelf().inSingletonScope();
   bind(UserFieldsDialogProps).toConstantValue({
     title: 'UserFields',
@@ -1082,4 +1111,43 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
   rebind(TheiaTerminalFrontendContribution).toService(
     TerminalFrontendContribution
   );
+
+  bindViewsWelcome_TheiaGH14309({ bind, widget: TreeViewWidget });
 });
+
+// Align the viewsWelcome rendering with VS Code (https://github.com/eclipse-theia/theia/issues/14309)
+// Copied from Theia code but with customized TreeViewWidget with the customized viewsWelcome rendering
+// https://github.com/eclipse-theia/theia/blob/0c5f69455d9ee355b1a7ca510ffa63d2b20f0c77/packages/plugin-ext/src/main/browser/plugin-ext-frontend-module.ts#L159-L181
+function bindViewsWelcome_TheiaGH14309({
+  bind,
+  widget,
+}: {
+  bind: interfaces.Bind;
+  widget: interfaces.Newable<TreeWidget>;
+}) {
+  bind(WidgetFactory)
+    .toDynamicValue(({ container }) => ({
+      id: PLUGIN_VIEW_DATA_FACTORY_ID,
+      createWidget: (options: TreeViewWidgetOptions) => {
+        const props = {
+          contextMenuPath: VIEW_ITEM_CONTEXT_MENU,
+          expandOnlyOnExpansionToggleClick: true,
+          expansionTogglePadding: 22,
+          globalSelection: true,
+          leftPadding: 8,
+          search: true,
+          multiSelect: options.multiSelect,
+        };
+        const child = createTreeContainer(container, {
+          props,
+          tree: PluginTree,
+          model: PluginTreeModel,
+          widget,
+          decoratorService: TreeViewDecoratorService,
+        });
+        child.bind(TreeViewWidgetOptions).toConstantValue(options);
+        return child.get(TreeWidget);
+      },
+    }))
+    .inSingletonScope();
+}
